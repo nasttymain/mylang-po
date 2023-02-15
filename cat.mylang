@@ -1,0 +1,7 @@
+:polem-mod{
+	0 @polem-mod-oprc [ ( $polem-mod-oprc $.operand 0 = ) ?{ break } ( $polem-mod-oprc 1 + @polem-mod-oprc ) ] .emml-stackdata
+	256 0
+	[ ( $polem-mod-oprc 0 1 - = ) ?{ break } ( $polem-mod-oprc $.operand ) ( $polem-mod-oprc 1 - @polem-mod-oprc ) ] .emml-stackdata
+	.po-dir-loadtostack ( .po-dir-ecode 0 - ) ?{ 8 @error } .puts [ ( 256 = ) ?{ break } ]
+	( $error 0 = ) ?{ 0 10 13 .puts }
+.}

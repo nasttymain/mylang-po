@@ -1,0 +1,290 @@
+//terma: pseudo-terminal for HSP3
+//Alpha 1
+//(C)2022-2023 nasTTY
+#module terma
+	#deffunc terma_init int screen_id, int buffer_id, int column, int row, int font_size
+		dim sid
+		sid=screen_id
+		dim bid
+		bid=buffer_id
+		dim c
+		c=column
+		dim r
+		r=row
+		dim fs
+		fs=font_size
+		
+		dim cursor
+		cursor=0
+		
+		dim delline
+		delline=0
+		
+		dim col
+		col=$FFF
+		dim bgcol
+		bgcol=0
+		
+		sdim charbuf,4096
+		sdim bt,4096
+		sdim bl,4096
+		sdim bp,4096
+		sdim bpo,4096
+		sdim tbuf,4096
+		dim b
+		charbuf=""
+		
+		
+		
+		//mode
+		dim intoout
+		intoout=1
+		
+		dim autorefresh
+		autorefresh=1
+		
+		dim showcursor
+		showcursor=1
+		
+		gsel bid
+		//font msgothic,fs
+		font "FixedSys",fs
+		color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+		boxf
+		
+		gsel sid
+		oncmd gosub *wmchar@terma,$102
+		
+		sdim cn,2
+		
+		terma_refresh
+		
+		dim lastf
+		
+		
+	return 0
+	#deffunc terma_putchar int char_code
+		if char_code=0{
+			return 1
+		}
+		if lastf=0{
+			if char_code>=256{
+				lastf=0
+				f=2
+			}else{
+				if char_code/16>=8 & char_code/16<=9{
+					lastf=char_code
+				}else{
+					lsatf=0
+				}
+				f=1
+			}
+			charcode=char_code
+		}else{
+			cursor-=1
+			charcode=lastf*256+char_code
+			lastf=0
+			f=2
+		}
+		gsel bid
+		pos (cursor\c)*fs/2,cursor/c*fs
+		color col/256*17,col\256/16*17,col\16*17
+		if charcode=13{
+//for CRLF/LF variability. do not use independent CR
+//			cursor=cursor/c*c
+		}else:if charcode=10{
+			cursor=cursor/c*c
+			cursor=cursor+c
+		}else:if charcode=8{
+			if delline<cursor{
+				cursor--
+				color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+				boxf (cursor\c)*fs/2,(cursor/c)*fs,(cursor\c+1)*fs/2,(cursor/c+1)*fs
+			}
+		}else:if charcode=9{
+			cursor+=2
+			color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+			boxf (cursor\c)*fs/2,(cursor/c)*fs,(cursor\c+2)*fs/2,(cursor/c+2)*fs
+		}else:if charcode>=32{
+			color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+			boxf (cursor\c)*fs/2,(cursor/c)*fs,(cursor\c+1)*fs/2*f,(cursor/c+1)*fs
+			color col/256*17,col\256/16*17,col\16*17
+			if f=1{
+				mes strf("%c",charcode)
+			}else{
+				poke cn,0,charcode/256
+				poke cn,1,charcode\256
+				mes strmid(cn,0,2)
+				cursor++
+			}
+			cursor++
+		}
+		repeat 1
+			if cursor>=c*r{
+				cursor=cursor-c
+				pos 0,0
+				gcopy bid,0,fs,ginfo_sx,ginfo_sy
+				color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+				boxf 0,(r-1)*fs,ginfo_sx,r*fs
+				continue 0
+			}
+			if cursor<0{
+				cursor=0
+			}
+		loop
+		if autorefresh=1{
+			terma_refresh
+		}
+	return 0
+	#defcfunc terma_getchar
+		terma_refresh
+		b=peek(charbuf,0)
+		charbuf=strmid(charbuf,1,strlen(charbuf)-1)
+	return b
+	#defcfunc terma_gettext
+		bt=""
+		repeat 4096
+			bf=terma_getchar()
+			if bf=0{
+				break
+			}
+			bt+=strf("%c",bf)
+		loop
+		charbuf=""
+	return terma_processbackpace(bt)
+	#defcfunc terma_processbackpace str text
+		bpo=""
+		bp=text
+		repeat strlen(bp)
+			bf=peek(bp,cnt)
+			if bf=0{
+				break
+			}else:if bf=8{
+				bpo=strmid(bpo,0,strlen(bpo)-1)
+			}else{
+				bpo=bpo+strf("%c",bf)
+			}
+		loop
+	return bpo
+	#deffunc terma_refresh
+		gsel sid
+		redraw 0
+		color bgcol/256*17,bgcol\256/16*17,bgcol\16*17
+		boxf
+		color 0,0,0
+		pos 0,0
+		gcopy bid,0,0,ginfo_sx,r*fs
+		if showcursor=1{
+			pos (cursor\c)*fs/2,cursor/c*fs
+			color col/256*17,col\256/16*17,col\16*17
+			mes "_"
+		}
+		redraw 1
+	return 0
+	#deffunc terma_puts str text
+		tbuf=text
+		repeat strlen(tbuf)
+			if peek(tbuf,cnt)/16>=8 & peek(tbuf,cnt)/16<=9{
+				terma_putchar peek(tbuf,cnt)*256+peek(tbuf,cnt+1)
+				continue cnt+2
+			}else{
+				terma_putchar peek(tbuf,cnt)
+				continue cnt+1
+			}
+		loop
+	return 0
+	#deffunc terma_set_intoout int val
+		intoout=val\2
+	return 0
+	#defcfunc terma_getline
+		bl=""
+		blc=0
+		repeat
+			blc=terma_getchar()
+			bl+=strf("%c",blc)
+			if blc!=0{
+				continue
+			}
+			if instr(bl,0,"\n")!=-1{
+				charbuf=strmid(bl,instr(bl,0,"\n")+2,strlen(bl)-instr(bl,0,"\n")-2)
+				bl=strmid(bl,0,instr(bl,0,"\n"))
+				break
+			}
+			await 1000
+		loop
+	return terma_processbackpace(bl)
+	#deffunc terma_setcursor int xpos, int ypos
+		cursor=xpos+ypos*c
+		if autorefresh=1{
+			terma_refresh
+		}
+	return 0
+
+	#deffunc terma_setdelborder
+		delline=cursor
+	return 0
+	
+*wmchar
+	tc=wparam
+	if tc<32{
+		if tc=8{
+			charbuf+=strf("%c",tc)
+		}
+		if tc=9{
+			charbuf+=strf("%c",tc)
+		}
+		if tc=13{
+			charbuf+=strf("%c",tc)
+			charbuf+=strf("%c",10)
+		}
+	}else{
+		charbuf+=strf("%c",tc)
+	}
+	if intoout=1{
+		if tc=13{
+			terma_putchar peek(charbuf,strlen(charbuf)-2)
+			terma_putchar 10
+		}else:if tc=8 & cursor\c!=0{
+			terma_putchar peek(charbuf,strlen(charbuf)-1)
+		}else:if tc>=32{
+			terma_putchar peek(charbuf,strlen(charbuf)-1)
+		}
+	}
+	return
+#global
+
+
+/********************************************************************************************************************************
+//test code
+screen 0,640,400
+screen 1,640,400,screen_hide
+
+//terma_init [表画面のスクリーンID],[裏画面のスクリーンID],[1列に表示する文字数],[行数],[フォントサイズ]
+//termaを初期化する
+terma_init 0,1,80,25,16
+
+//terma_set_intoout [設定値]
+//入力を自動的に出力するかどうかのモードを設定する。0で自動出力なし、1で自動出力あり。デフォルトは1。
+terma_set_intoout 1
+
+//terma_puts [文字列]
+//termaに文字列を描画する。
+terma_puts "Hello, World!"
+terma_puts "はろー"
+
+//terma_gettext()
+//キーボードから入力された文字列を受け取る。(即時)
+/*repeat
+//	terma_puts terma_gettext()
+//	await
+//loop
+
+//terma_getline()
+//キーボードから入力された文字列を1行分受け取る。(入力待ちに入る。)
+terma_puts terma_getline()
+
+//terma_setcursor [x座標],[y座標]
+//カーソルを指定位置に移動する。
+terma_setcursor 1,1
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/

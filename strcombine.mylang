@@ -1,0 +1,42 @@
+:po-entry{ [ 0 10 13 .gets .charstream-combime 62 .putchar .puts 60 .putchar ] .}
+
+:putchar{
+	.po-term-putchar
+.}
+:puts{
+	.po-term-puts
+.}
+:getchar{
+	.po-term-getchar
+.}
+
+:gets{
+	.po-term-getline
+.}
+
+:charstream-combime{
+    0 @charstream-i
+    [
+        $charstream-i @.charstream-str
+        ( $charstream-i $.charstream-str 0 = ?{
+            break
+        }
+        $charstream-i 1 + @charstream-i
+    ]
+    [
+        $charstream-i @.charstream-str
+        ( $charstream-i $.charstream-str 0 = ?{
+            break
+        }
+        $charstream-i 1 + @charstream-i
+    ]
+    [
+        ( $charstream-i ( 0 1 - ) = ) ?{
+            break
+        }
+        $charstream-i  $.charstream-str
+        $charstream-i 1 - @charstream-i
+    ]
+
+.}
+

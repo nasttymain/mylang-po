@@ -1,0 +1,275 @@
+#include "emml.hsp"
+#include "terma.hsp"
+//------------------------------------------------------------------------------------------------------------------------------
+*init
+	screen 0,640,480
+	title "mylangpo"
+	buffer 1,640,480
+	sdim codebuf,1048576
+	codebuf=""
+	sdim code_fname,4096,16
+	dim code_fptr,16
+	dim code_fsize,16
+	code_fname(0)="polem.mylang"
+	code_fptr(0)=0
+	exist code_fname(0)
+	if strsize!=-1{
+		bload "polem.mylang",codebuf
+		code_fsize(0)=strsize
+	}else{
+		stop
+	}
+	
+	terma_init 0,1,80,30,16
+	terma_set_intoout 1
+	autorefresh@terma=1
+	terma_refresh
+	
+	emml_init 65536
+	emml_addextension *po_core
+	emml_addextension *po_term
+	emml_addextension *po_directory
+	
+	emml_call codebuf, "po-init"
+	repeat
+		emml_runcode 1024
+		if stat!=0{
+			break
+		}
+		if cnt\16=0{
+			terma_refresh
+		}
+		await 4
+	loop
+	terma_refresh
+	terma_puts "[EMML] Terminated "+stat+" at "+token@emmylang
+	terma_set_intoout 0
+	stop
+//------------------------------------------------------------------------------------------------------------------------------
+*po_core
+	if instr(EMML_TOKEN,0,".po-core-")=0{
+		if EMML_TOKEN=".po-core-ecode"{
+			emml_setstack po_core_lasterror
+		}else:if EMML_TOKEN=".po-core-loadmod"{
+			code_vacant=-1
+			repeat length(code_fptr)
+				if code_fname(cnt)=""{
+					code_vacant=cnt
+					break
+				}
+			loop
+			if code_vacant=-1{
+				po_core_lasterror=17
+				return
+			}
+			sdim po_core_s,4096
+			po_core_s=""
+			repeat
+				po_core_n=emml_getstack()
+				if po_core_n=0{
+					break
+				}else{
+					po_core_s+=strf("%c", po_core_n)
+				}
+			loop
+			exist po_core_s
+			if strsize=-1{
+				po_core_lasterror=1
+			}else{
+				code_fname(code_vacant)=po_core_s
+				code_fptr(code_vacant)=strlen(codebuf)
+				sdim modbuf,strsize+1
+				bload po_core_s,modbuf
+				codebuf+=" "+modbuf
+				code_fsize(code_vacant)=strlen(codebuf)-code_fptr(code_vacant)
+				po_core_lasterror=0
+				//‚Ù‚ñ‚Æ‚¤‚Í‚¯‚µ‚½‚¢
+				emml_clearcodecache
+				
+			}
+		}else:if EMML_TOKEN=".po-core-unloadmod"{
+			sdim po_core_s,4096
+			po_core_s=""
+			repeat
+				po_core_n=emml_getstack()
+				if po_core_n=0{
+					break
+				}else{
+					po_core_s+=strf("%c", po_core_n)
+				}
+			loop
+			if po_core_s=""{
+				po_core_lasterror=3
+				return
+			}
+			po_core_lasterror=1
+			repeat length(code_fptr)
+				if code_fname(cnt)=po_core_s{
+					po_core_lasterror=0
+					code_fname(cnt)=""
+					codebuf=strmid( codebuf, 0, code_fptr(cnt) ) + strmid( codebuf, code_fptr(cnt)+code_fsize(cnt), strlen(codebuf)-(code_fptr(cnt)+code_fsize(cnt)) )
+					emml_clearcodecache
+					break
+				}
+			loop
+		}
+	}
+	return
+//------------------------------------------------------------------------------------------------------------------------------
+*po_term
+	if instr(EMML_TOKEN,0,".po-term-")=0{
+		if EMML_TOKEN=".po-term-putchar"{
+			terma_putchar emml_getstack()
+		}else:if EMML_TOKEN=".po-term-puts"{
+			autorefresh@terma=0
+			repeat
+				po_term_n=emml_getstack()
+				terma_putchar po_term_n
+				if po_term_n=0{
+					break
+				}
+			loop
+			autorefresh@terma=1
+		}else:if EMML_TOKEN=".po-term-getchar"{
+			repeat
+				po_term_n=terma_getchar()
+				if po_term_n!=0{
+					emml_setstack po_term_n
+					break
+				}
+				wait 1
+			loop
+		}else:if EMML_TOKEN=".po-term-getline"{
+			terma_set_intoout 0
+			sdim po_term_a,4096
+			po_term_a=""
+			repeat
+				po_term_n=terma_getchar()
+				if po_term_n!=0{
+					if po_term_n=8{
+						if strlen(po_term_a)>0{
+							po_term_a+=strf("%c",8)
+							po_term_a=terma_processbackpace(po_term_a)
+							terma_putchar po_term_n
+						}else{
+							po_term_a+=strf("%c",8)
+							po_term_a=terma_processbackpace(po_term_a)
+						}
+					}else:if po_term_n=13{
+						drop=terma_getchar()
+						terma_putchar 13
+						terma_putchar 10
+						po_term_a+=strf("%c",0)
+						break
+					}else{
+						terma_putchar po_term_n
+						po_term_a+=strf("%c",po_term_n)
+					}
+				}
+				if po_term_n=0{
+					wait 200
+				}
+			loop
+			po_term_a=terma_processbackpace(po_term_a)
+			emml_setstack 0
+			repeat strlen(po_term_a)
+				emml_setstack peek(po_term_a,strlen(po_term_a)-1)
+				poke po_term_a,strlen(po_term_a)-1,0
+			loop
+			terma_set_intoout 1
+		}
+	}
+	return
+//------------------------------------------------------------------------------------------------------------------------------
+*po_directory
+	if instr(EMML_TOKEN,0,".po-dir-")=0{
+		if EMML_TOKEN=".po-dir-ecode"{
+			emml_setstack po_dir_lasterror
+		}else:if EMML_TOKEN=".po-dir-getdir"{
+			sdim flist, 65536
+			dirlist flist,"*.*",1
+			sdim fone, 4096 
+		}else:if EMML_TOKEN=".po-dir-fcount"{
+			notesel flist
+			emml_setstack notemax
+			noteunsel
+		}else:if EMML_TOKEN=".po-dir-fname"{
+			notesel flist
+			noteget fone,emml_getstack()
+			emml_setstack 0
+			if fone=""{
+				po_dir_lasterror=1
+			}else{
+				repeat strlen(fone)
+					emml_setstack peek(fone,strlen(fone)-1-cnt)
+				loop
+				po_dir_lasterror=0
+			}
+			noteunsel
+		}else:if EMML_TOKEN=".po-dir-fsize"{
+			notesel flist
+			noteget fone,emml_getstack()
+			exist fone
+			if fone=""{
+				emml_setstack 0
+				po_dir_lasterror=1
+			}else{
+				emml_setstack strsize
+				po_dir_lasterror=0
+			}
+		}else:if EMML_TOKEN=".po-dir-loadtostack"{
+			sdim po_dir_s,4096
+			po_dir_s=""
+			repeat
+				po_dir_n=emml_getstack()
+				if po_dir_n=0{
+					break
+				}else{
+					po_dir_s+=strf("%c", po_dir_n)
+				}
+			loop
+			fone=po_dir_s
+			//notesel flist
+			//noteget fone,emml_getstack()
+			exist fone
+			if strsize=-1{
+				po_dir_lasterror=1
+			}else{
+				po_dir_lasterror=0
+				sdim fbuffer, strsize+1
+				dim fsize
+				fsize=strsize
+				bload fone, fbuffer,strsize
+				repeat fsize
+					emml_setstack peek(fbuffer,fsize-1-cnt)
+				loop
+			}
+		}else:if EMML_TOKEN=".po-dir-savefromstack"{
+			sdim po_dir_s,4096
+			po_dir_s=""
+			repeat
+				po_dir_n=emml_getstack()
+				if po_dir_n=0{
+					break
+				}else{
+					po_dir_s+=strf("%c", po_dir_n)
+				}
+			loop
+			po_dir_s=strtrim(po_dir_s,3,'\t')
+			po_dir_s=strtrim(po_dir_s,0,' ')
+			po_dir_s=strtrim(po_dir_s,3,'\n')
+			po_dir_s=strtrim(po_dir_s,3,'\r')
+			if po_dir_s=""{
+				po_dir_lasterror=1
+				return
+			}
+			po_dir_c=emml_getstack()
+			sdim po_dir_b,po_dir_c
+			repeat po_dir_c
+				po_dir_b+=strf("%c", emml_getstack())
+			loop
+			bsave po_dir_s, po_dir_b, po_dir_c
+			po_dir_lasterror=0
+		}
+	}
+	return

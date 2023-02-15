@@ -1,0 +1,15 @@
+:polem-mod{
+	.po-dir-getdir
+	.po-dir-fcount @polem-mod-fc
+	0 @polem-mod-c [ ( $polem-mod-c $polem-mod-fc = ) ?{ break } 0 32 58 .puts $polem-mod-c .po-dir-fname .puts 0 10 13 .puts ( $polem-mod-c 1 + @polem-mod-c ) ]
+	0 10 13 58 .puts
+	0 32 58 .puts
+	0 100 110 117 111 102 32 41 115 40 101 108 105 102 32
+	[
+		$polem-mod-fc $polem-mod-fc 10 / 10 * - 48 +
+		$polem-mod-fc 10 / @polem-mod-fc
+		( $polem-mod-fc 0 = ) ?{ break }
+	]
+	.puts
+	0 10 13 .puts
+.}

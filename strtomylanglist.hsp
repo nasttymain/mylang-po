@@ -1,0 +1,16 @@
+sdim buf,4096
+sdim ex, 65536
+sdim exb, 65536
+mesbox buf,640,200,1
+pos 1
+objsize 638,24
+button "GENERATE", *gen
+pos 0
+mesbox ex,640,200,0
+stop
+*gen
+	exb=""
+	repeat strlen(buf)
+		exb=""+peek(buf,cnt)+" "+exb
+	loop
+	objprm 2,exb

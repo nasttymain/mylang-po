@@ -1,0 +1,11 @@
+:polem-mod{
+	0 @polem-mod-lenbuf [ ( $polem-mod-lenbuf $.buf 0 = ) ?{ break } ( $polem-mod-lenbuf 1 + @polem-mod-lenbuf ) ]
+	0
+	[
+		$polem-mod-lenbuf $polem-mod-lenbuf 10 / 10 * - 48 +
+		$polem-mod-lenbuf 10 / @polem-mod-lenbuf
+		( $polem-mod-lenbuf 0 = ) ?{ break }
+	]
+	.puts
+	0 10 13 .puts
+.}

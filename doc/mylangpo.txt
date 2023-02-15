@@ -1,0 +1,62 @@
+# po-term
+* プレフィクス: po-term
+* 変数プレフィクス: po-term
+* テレタイプレベルの標準入出力を扱う拡張機能
+* 行数・1行文字数・ASCII以外のエスケープシーケンスなどは規定無し
+
+## 関数一覧: 
+po-term-putchar (param: int)
+	スタックに積んである文字を標準出力に1文字分出力する
+po-term-puts (param: int[])
+	スタックに積んである文字を文字列とみなして、0x00が出てくるまで出力する
+putchar (param: int)
+	-> po-term-putchar
+
+po-term-getline
+	1行分文字を受け取り、スタックに後ろから格納する
+po-term-getchar
+	1文字入力を受け取り、スタックに格納する(内部でpo-term-getlineを呼び出し、それをバッファに格納して使う)
+getchar
+	-> po-term-getchar
+
+
+# po-directory
+* プレフィクス: po-dir
+* 変数プレフィクス: po-dir
+* ファイルへのアクセスを提供する拡張機能
+
+## 関数一覧:
+* po-dir-ecode
+	直前の命令のエラーコードを格納する
+* po-dir-getdir
+	現在のディレクトリの情報を取得する
+* po-dir-fcount
+	現在のディレクトリにあるファイルの数を返す
+* po-dir-fname (param: int)
+	fcountでn番目のファイルの名前を文字列としてスタックに格納する
+* po-dir-fsize (param: int)
+	fcountでn番目のファイルの長さを取得する
+* po-dir-loadtostack (param: int[] filename)
+	ファイルをバイナリとしてスタックに読み込む
+* po-dir-savefromstack (param:int[filesize] binarydata, int filesize, int[] filename)
+	filesizeサイズのバイナリデータを、スタックからセーブする
+
+## 予約済キーワード一覧
+* po-dir-dcount
+	現在のディレクトリにあるサブディレクトリの数を返す(予約済)
+* po-dir-chdir (param: int)
+	dcountでn番目のディレクトリに、カレントディレクトリを移す(予約済)
+* po-dir-loadlib (param: int)
+	fcountでn番目のファイルをmylangライブラリとして解釈し、動的に読み込む
+
+
+# po-core
+* プレフィクス: po-core
+* po 実行環境に関するアクセスを提供する拡張機能
+
+
+* po-core-override (param: int[] fname)
+	fnameで指定されたファイルをcodesrcに読み込み、po-entry関数から実行を開始する。スタック・変数は維持する。コールスタックは破棄する
+
+* po-core-loadmod(param: int[] fname)
+	fnameで指定されたファイルをcodesrcに読み込み、既存のcodesrcと結合する。(原始的なimportとして機能する)。コンテキストは維持する

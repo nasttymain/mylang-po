@@ -1,0 +1,450 @@
+#module emmylang
+	#deffunc emml_init int stack_depth
+		dim stack,stack_depth
+		stack(0)=5581000
+		dim sdepth
+		sdepth=stack_depth
+		dim si
+		si=1
+		sdim varname,64,65536
+		dim vardata,65536
+		
+		dim pc
+		pc=0
+		sdim token,64
+		#define global EMML_TOKEN token@emmylang
+		
+		dim errorcode
+		errorcode=0
+		dim varerror
+		varerror=0
+		
+		dim extension_avail,32
+		ldim extension_label,32
+		
+		sdim cstack,64
+		dim csi,64
+		
+		//ループ対応関係のキャッシュ
+		dim lc_avail,4096
+		dim lc_start,4096
+		dim lc_end,4096
+		dim lc_entries
+		lc_entries=0
+		//関数ポインタのキャッシュ
+		dim fp_avail,256
+		sdim fp_name,256,256
+		dim fp_addr,256
+		dim fp_entries
+		fp_entries=0
+		
+	return 0
+	#deffunc emml_addextension label clbk
+		repeat length(extension_label)
+			if extension_avail(cnt)=0{
+				extension_avail(cnt)=1
+				extension_label(cnt)=clbk
+				break
+			}
+		loop
+	return 0
+	#deffunc emml_setvar str var_name, int var_data
+		sdim vn,4096
+		vn=var_name
+		sdim vi, 4096
+		vi=-1
+		repeat length(varname)
+			if varname(cnt)=strmid(vn,1,strlen(vn)-1) | varname(cnt)=""{
+				varname(cnt)=strmid(vn,1,strlen(vn)-1)
+				vardata(cnt)=var_data
+				break
+			}
+		loop
+	return 0
+	#defcfunc emml_getvar str var_name
+		sdim vn,4096
+		vn=var_name
+		sdim vi, 4096
+		vi=-1
+		repeat length(varname)
+			if varname(cnt)=strmid(vn,1,strlen(vn)-1){
+				vi=cnt
+				break
+			}
+			if cnt=length(varname)-1{
+				//varerror=1
+			}
+		loop
+		if vi!=-1{
+			return vardata(vi)
+		}
+	return 0
+	#defcfunc emml_getstack
+		si--
+		if si<=0{
+			errorcode=1
+			varerror=1
+			return 0
+		}
+	return stack(si)
+	#deffunc emml_setstack int value
+		if si>=sdepth{
+			errorcode=20
+		}
+		stack(si)=value
+		si++
+	return 0
+	#deffunc emml_clearcodecache
+		dim lc_avail,4096
+		dim fp_avail,4096
+		lc_entries=0
+		fp_entries=0
+	return 0
+	#deffunc emml_call var code_src, str funcname
+		emml_clearcodecache
+		errorcode=0
+		dup codesrc, code_src
+		if funcname=""{
+			pc=0
+			cstack(0)=0
+			csi=1
+		}else{
+			if instr(codesrc,0,":"+funcname+"{")!=-1{
+				pc=instr(codesrc,0,":"+funcname+"{")+strlen(":"+funcname+"{")+1
+				cstack(0)=0
+				csi=1
+			}
+		}
+	return 0
+	#deffunc emml_runcode int step_limitation
+		if si>=sdepth{
+			errorcode=20
+		}
+		if funcname=""{
+			//continue
+		}else{
+		}
+		repeat step_limitation
+			if errorcode!=0{
+				break
+			}
+			if si<=0{
+				errorcode=1
+				break
+			}
+			if csi<=0{
+				errorcode=-2
+				break
+			}
+			if pc>=strlen(codesrc){
+				errorcode=-1
+				break
+			}
+			token=""
+			repeat 256
+				if pc>=strlen(codesrc){
+					break
+				}
+				if peek(codesrc,pc)!=13 and peek(codesrc,pc)!=10 and peek(codesrc,pc)!=' ' and peek(codesrc,pc)!='\t'{
+					token+=strmid(codesrc,pc,1)
+					pc++
+				}else{
+					pc++
+					break
+				}
+			loop
+			//pc+=strsize
+			if token="" | token="(" | token=")"{
+				//空
+				continue
+			}
+			//logmes "\""+token+"\""
+			if (peek(token,0)>='0' & peek(token,0)<='9') | (peek(token,0)='-' & peek(token,1)>='0' & peek(token,1)<='9'){
+				//数値
+				stack(si)=int(token)
+				si++
+			}else:if token="+"{
+				//足
+				stack(si-2)+=stack(si-1)
+				si--
+			}else:if token="-"{
+				//引
+				stack(si-2)-=stack(si-1)
+				si--
+			}else:if token="*"{
+				//掛
+				stack(si-2)*=stack(si-1)
+				si--
+			}else:if token="/"{
+				//割
+				stack(si-2)/=stack(si-1)
+				si--
+			}else:if token="="{
+				//一致
+				stack(si-2)=stack(si-2)=stack(si-1)
+				si--
+			}else:if token=">"{
+				//より大きい
+				stack(si-2)=stack(si-2)>stack(si-1)
+				si--
+			}else:if token="<"{
+				//より小さい
+				stack(si-2)=stack(si-2)<stack(si-1)
+				si--
+			}else:if peek(token,0)='@'{
+				//変数への代入
+				if peek(token,1)='.'{
+					//配列変数
+					emml_setvar "@"+str(stack(si-1))+strmid(token,1,strlen(token)-1), stack(si-2)
+					si-=2
+				}else{
+					emml_setvar token, stack(si-1)
+					si--
+				}
+			}else:if peek(token,0)='$'{
+				//変数からの取り出し
+				if peek(token,1)='.'{
+					//配列変数
+					stack(si-1)=emml_getvar("."+str(stack(si-1))+strmid(token,1,strlen(token)-1))
+					//si++
+					errorcode=varerror
+				}else{
+					stack(si)=emml_getvar(token)
+					si++
+					errorcode=varerror
+				}
+			}else:if peek(token,0)='}'{
+				//end if。何もしない
+			}else:if strmid(token,0,2)="?{"{
+				if stack(si-1)=0{
+					//==0: skip
+					si--
+					nest=1
+					repeat
+						token=""
+						repeat 256
+							if pc>=strlen(codesrc){
+								break
+							}
+							if peek(codesrc,pc)!=13 and peek(codesrc,pc)!=10 and peek(codesrc,pc)!=' ' and peek(codesrc,pc)!='\t'{
+								token+=strmid(codesrc,pc,1)
+								pc++
+							}else{
+								pc++
+								break
+							}
+						loop
+						if peek(token,0)='?{'{
+							nest++
+						}
+						if peek(token,0)='}'{
+							nest--
+						}
+						if nest=0{
+							break
+						}
+					loop
+				}else{
+					//!=0: continue
+					si--
+				}
+			}else:if peek(token,0)='['{
+				//while true。何もしない
+			}else:if peek(token,0)=']'{
+				//end while	
+				//キャッシュ---
+				lc_found=-1
+				lc_vacant=lc_entries
+				repeat lc_entries
+					if lc_end(cnt)=pc{
+						lc_found=cnt
+						pc=lc_start(cnt)
+						break
+					}
+				loop
+				if lc_found=-1{
+					lc_avail(lc_vacant)=1
+					lc_end(lc_vacant)=pc
+					//探索---
+					nest=1
+					token=""
+					pc-=2
+					repeat
+						pc--
+						if pc<0{
+							errorcode=9
+							break
+						}
+						if strmid(codesrc,pc,1)!=" " and strmid(codesrc,pc,1)!="\t" and peek(codesrc,pc)!=13 and peek(codesrc,pc)!=10 and pc!=0{
+							token=strmid(codesrc,pc,1)+token
+						}else{
+							if pc=0{
+								token=strmid(codesrc,pc,1)+token
+							}
+							if token="["{
+								nest--
+							}
+							if token="]"{
+								nest++
+							}
+							token=""
+						}
+						if nest=0{
+							pc+=2
+							break
+						}
+					loop
+					pc++
+					lc_start(lc_vacant)=pc
+					lc_entries++
+					//---
+				}
+			}else:if token="break"{
+				//キャッシュ---
+				lc_found=-1
+				lc_vacant=lc_entries
+				repeat lc_entries
+					if lc_end(cnt)=pc{
+						lc_found=cnt
+						pc=lc_start(cnt)
+						break
+					}
+				loop
+				if lc_found=-1{
+					lc_avail(lc_vacant)=1
+					lc_end(lc_vacant)=pc
+					//探索---
+					nest=1
+					pc-=6
+					repeat
+						pc++
+						if pc<0{
+							errorcode=9
+							break
+						}
+						if strmid(codesrc,pc,1)!=" " and strmid(codesrc,pc,1)!="\t" and peek(codesrc,pc)!=13 and peek(codesrc,pc)!=10 and pc!=0{
+							token=strmid(codesrc,pc,1)+token
+						}else{
+							if pc>=strlen(codesrc){
+								token=strmid(codesrc,-1,1)+token
+							}
+							if token="["{
+								nest++
+							}
+							if token="]"{
+								nest--
+							}
+							token=""
+						}
+						if nest=0{
+							pc+=1
+							break
+						}
+					loop
+					lc_start(lc_vacant)=pc
+					lc_entries++
+				}
+			}else:if strmid(token,0,2)=".}"{
+				//関数終端
+				csi--
+				pc=cstack(csi)
+			}else:if peek(token,0)=':' & peek(token,strlen(token)-1)='{'{
+				//関数始端
+				nest=1
+				repeat
+					token=""
+					repeat 256
+						if pc>=strlen(codesrc){
+							break
+						}
+						if peek(codesrc,pc)!=13 and peek(codesrc,pc)!=10 and peek(codesrc,pc)!=' ' and peek(codesrc,pc)!='\t'{
+							token+=strmid(codesrc,pc,1)
+							pc++
+						}else{
+							pc++
+							break
+						}
+					loop
+					//pc+=Strsize
+					if strmid(token,0,2)=".}"{
+						nest--
+					}
+					if nest=0{
+						break
+					}
+					if pc>=strlen(codesrc){
+						errorcode=10
+						break
+					}
+				loop
+			}else:if peek(token, 0)='.'{
+				//ユーザー定義関数, または環境固有関数の呼び出し
+				if strmid(token, 0, 6)=".emml-"{
+					//環境固有関数
+					if token=".emml-stoprun"{
+						errorcode=-1
+					}else:if token=".emml-stackdata"{
+						debug_sinfo="[ "
+						repeat si-1
+							debug_sinfo+=str(stack(cnt+1))+" "
+						loop
+						debug_sinfo+="]"
+						logmes debug_sinfo
+					}
+				}else{
+					//ユーザー定義関数
+					fp_found=-1
+					fp_vacant=fp_entries
+					repeat fp_entries
+						if fp_name(cnt)=token{
+							fp_found=cnt
+							pc=fp_addr(cnt)
+							break
+						}
+					loop
+					if fp_found=-1{
+						if instr(codesrc,0,":"+strmid(token, 1, strlen(token)-1)+"{")!=-1{
+							cstack(csi)=pc
+							csi++
+							pc=instr(codesrc,0,":"+strmid(token, 1, strlen(token)-1)+"{")+strlen(":"+strmid(token, 1, strlen(token)-1)+"{")
+							
+							fp_avail(fp_vacant)=1
+							fp_name(fp_vacant)=token
+							fp_addr(fp_vacant)=pc
+						}else{
+							//拡張機能関数
+							repeat length(extension_label)
+								if extension_avail(cnt)=1{
+									gosub extension_label(cnt)
+								}
+							loop
+						}
+					}
+				}
+			}else{
+				errorcode=8
+			}
+		loop
+	return errorcode
+#global
+/*font msgothic,12
+emml_init 65536
+emml_addextension *testex
+sdim testcode,65536
+//testcode="0 [ 1 + .emml-stackdata ]"
+//testcode="1 @n 0 @p [ $n $p + $n @p @n ( $n .emml-stackdata @drop ) ]"
+bload "bf.mylang",testcode
+//
+emml_call testcode,""
+repeat
+	emml_runcode 128
+	if stat!=0{
+		mes stat
+		break
+	}
+	await
+loop
+stop
+*testex
+	return
+//*/

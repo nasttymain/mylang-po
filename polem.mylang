@@ -1,0 +1,260 @@
+:po-init{
+	.po-entry
+.}
+
+:po-entry{
+	.polem-main
+.}
+:polem-main{
+	0 0 @.buf
+	0 10 13 46 105 72 32 58 .puts
+	[
+		0 1 - @error
+		0 @terminate
+		0 32 62 .puts
+		.getline 0 @c [ $c @.command ( $c $.command 0 = ) ?{ break } ( $c 1 + @c ) ]
+		0 @c [ ( $c $.command 32 = $c $.command 0 = + ) ?{ 0 $c @.opcode break } ( $c $.command $c @.opcode ) ( $c 1 + @c ) ]
+		( $c $.command 0 = ) ?{
+			0 0 @.operand
+		}
+		( $c $.command 32 = ) ?{
+			$c 1 + @c 0 @cr [ ( $c $.command 0 = ) ?{ 0 $cr @.operand $cr @drop break } ( $c $.command $cr @.operand ) ( $c 1 + @c ) ( $cr 1 + @cr ) ]
+		}
+		.polem-command
+		( $terminate 1 = ) ?{
+			break
+		}
+		
+		( $error ) ?{
+			0 10 13 69 32 58 .puts
+		}
+	]
+.}
+:polem-command{
+	( ( ( 0 $.opcode 108 = ) ( 0 $.opcode 76 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 @error
+		0 @linecounter
+		0 @c [
+			0 32 58 .puts
+			( $linecounter 1 + ) @dup $dup $dup 10 / 10 * - 48 + .putchar
+			32 .putchar
+			
+			[
+				( $c $.buf 0 = $c $.buf 10 = + ) ?{ break }
+				( $c $.buf .putchar )
+				( $c 1 + @c )
+			]
+			( $c $.buf 0 = ) ?{ break }
+			( $c $.buf 10 = ) ?{ 10 .putchar }
+			( $c 1 + @c )
+			( $linecounter 1 + @linecounter )
+		]
+		0 10 13 .puts
+	}
+	
+	( ( ( 0 $.opcode 113 = ) ( 0 $.opcode 81 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 @error
+		1 @terminate
+	}
+	( ( ( 0 $.opcode 110 = ) ( 0 $.opcode 78 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 @error
+		0 0 @.buf
+	}
+	( ( ( 0 $.opcode 111 = ) ( 0 $.opcode 79 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0
+		0 @lentext [ ( $lentext $.operand 0 = ) ?{ break } ( $lentext 1 + @lentext ) ] [ $lentext $.operand ( $lentext 0 = ) ?{ break } ( $lentext 1 - @lentext ) ]
+		.po-dir-loadtostack
+		.po-dir-ecode @error
+		( $error 0 = ) ?{
+			( 0 @c ) [
+				$c @.buf
+				( $c $.buf 0 = ) ?{
+					break
+				}
+				( $c 1 + @c )
+			]
+		}
+	}
+	
+	( ( ( 0 $.opcode 119 = ) ( 0 $.opcode 87 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 0
+		0 @lentext [ ( $lentext $.operand 0 = ) ?{ break } ( $lentext 1 + @lentext ) ] [ $lentext $.operand ( $lentext 0 = ) ?{ break } ( $lentext 1 - @lentext ) ]
+		.po-dir-savefromstack
+		( .po-dir-ecode 0 - ) ?{
+			@drop @drop
+		}
+		( .po-dir-ecode 0 = ) ?{
+			0 @lenbuf [ ( $lenbuf $.buf 0 = ) ?{ break } ( $lenbuf 1 + @lenbuf ) ]
+			$lenbuf 1 - @c [ ( $c 0 < ) ?{ break } $c $.buf ( $c 1 - @c ) ]
+			$lenbuf
+			0 @lentext [ ( $lentext $.operand 0 = ) ?{ break } ( $lentext 1 + @lentext ) ] [ $lentext $.operand ( $lentext 0 = ) ?{ break } ( $lentext 1 - @lentext ) ]
+			.po-dir-savefromstack
+			.po-dir-ecode @error
+			@drop
+		}
+	}
+	
+	( ( ( 0 $.opcode 100 = ) ( 0 $.opcode 68 = ) + 0 > ) ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 @error
+		0 0 @c [ ( $c $.operand 0 = ) ?{ break } $c $.operand ( $c 1 + @c ) ] .revatoi 1 - 1 + @targetline
+		( $targetline 1 < ) ?{
+			2 @error
+		}
+		( $targetline 0 > ) ?{
+			0 @currentline
+			0 1 - @dstart
+			0 @c [ ( $currentline $targetline 1 - = ) ?{ ( $dstart 0 1 - = ) ?{ $c @dstart } } ( $currentline $targetline = ) ?{ break } ( $c $.buf 10 = $c 1 - $.buf 13 = + 2 = ) ?{ $currentline 1 + @currentline } ( $c $.buf 0 = ) ?{ ( $currentline $targetline 1 - = ) ?{ $dstart 2 - } break } ( $c 1 + @c ) ]
+			$c @dend
+			$dstart @c [ ( $c ( $dend $dstart - ) + $.buf $c @.buf ) ( $c ( $dend $dstart - ) + $.buf 0 = ) ?{ break } ( $c 1 + @c ) ]
+		}
+	}
+	
+	( ( 0 $.opcode 47 > ) ( 0 $.opcode 58 < ) + 2 = ) ?{
+		0 @error
+		0 0 @c [ ( $c $.opcode 0 = ) ?{ break } $c $.opcode ( $c 1 + @c ) ] .revatoi 1 - @targetline
+		
+		( $targetline 0 1 - = ) ?{ 9 @error }
+		( $targetline 0 1 - - ) ?{
+			0 @i
+			0 @iuntil
+			0 @currentline
+			0 @cond
+			[
+				( $currentline $targetline = ) ?{ 3 @cond break }
+				( $i $.buf 0 = ) ?{ 2 @cond break }
+				( $i $.buf 13 = ) ?{ $i 1 + @i $currentline 1 + @currentline }
+				( $i 1 + @i )
+			]
+			( $cond 3 = ) ?{
+				$i @iuntil
+				[
+					( $iuntil $.buf 13 = ) ?{ $iuntil 2 + @iuntil 4 @cond break }
+					( $iuntil $.buf 0 = ) ?{ 11 @cond break }
+					( $iuntil 1 + @iuntil )
+				]
+			}
+			( $cond 4 = ) ?{
+				0 @lentext [ ( $lentext $.operand 0 = ) ?{ break } ( $lentext 1 + @lentext ) ]
+				( $iuntil $i - 2 - $lentext - ) ?{
+				}
+				( $iuntil $i - 2 - $lentext - 0 > ) ?{
+					0 @lenbuf [ ( $lenbuf $.buf 0 = ) ?{ break } ( $lenbuf 1 + @lenbuf ) ]
+					$iuntil @iseek [ ( $iseek $.buf ( $iseek $iuntil $i - 2 - $lentext - 0 - - ) @.buf ) ( $iseek $lenbuf = ) ?{ break } ( $iseek 1 + @iseek ) ]
+				}
+				( $lentext $iuntil $i - 2 - - 0 > ) ?{
+					0 @lenbuf [ ( $lenbuf $.buf 0 = ) ?{ break } ( $lenbuf 1 + @lenbuf ) ]
+					$lenbuf @iseek [ ( $iseek $.buf ( $iseek $lentext $iuntil $i - 2 - - + ) @.buf ) ( $iseek $iuntil = ) ?{ break } ( $iseek 1 - @iseek ) ]
+				}
+				1 @cond
+			}
+			( $cond 2 = ) ?{
+				[
+					( $currentline $targetline = ) ?{ break }
+					13 $i @.buf
+					10 ( $i 1 + ) @.buf
+					$i 2 + @i
+					$currentline 1 + @currentline
+				]
+				11 @cond
+			}
+			( $cond 1 = $cond 11 = + ) ?{
+				0 @c
+				[
+					( $c $.operand 0 = ) ?{ break }
+					$c $.operand $i @.buf
+					( $c 1 + @c $i 1 + @i )
+				]
+				( $cond 1 = ) ?{
+					13 $i @.buf 10 ( $i 1 + ) @.buf
+				}
+				( $cond 11 = ) ?{
+					0 $i @.buf
+				}
+			}
+		}
+	}
+	( ( 0 $.opcode 86 = ) ( 0 $.opcode 118 = ) + 0 > ( 1 $.opcode 0 = ) + 2 = ) ?{
+		0 10 13 89 84 84 115 97 47 124 47 32 51 50 48 50 32 41 67 40 32 58 10 13 50 46 48 32 77 69 76 32 58 .puts
+		0 @error
+	}
+	( $error 0 - ) ?{
+		0 @lentext [ ( $lentext $.opcode 0 = ) ?{ 0 $lentext @.modname break } $lentext $.opcode $lentext @.modname ( $lentext 1 + @lentext ) ]
+		( $lentext 0 - ) ?{
+			0 @lentext [ ( $lentext $.modname 0 = ) ?{ break } ( $lentext 1 + @lentext ) ] $lentext 1 - @lentext 0 103 110 97 108 121 109 46 [ $lentext $.modname ( $lentext 0 = ) ?{ break } ( $lentext 1 - @lentext ) ]
+			.po-core-loadmod
+			( .po-core-ecode 0 = ) ?{
+				0 @error
+				.polem-mod
+				0 @lentext [ ( $lentext $.modname 0 = ) ?{ break } ( $lentext 1 + @lentext ) ] $lentext 1 - @lentext 0 103 110 97 108 121 109 46 [ $lentext $.modname ( $lentext 0 = ) ?{ break } ( $lentext 1 - @lentext ) ]
+				.po-core-unloadmod
+			}
+		}
+		
+	}
+
+.}
+:revatoi{
+	0 @atoi-result
+	0 @atoi-c
+	[
+		@atoi-digit
+		( $atoi-digit 0 = ) ?{
+			break
+		}
+		( ( $atoi-digit 48 < ) ( $atoi-digit 57 > ) + ) ?{
+			break
+		}
+		$atoi-digit 48 - 
+			1 0 @atoi-cd [ ( $atoi-cd $atoi-c = ) ?{ break } 10 * ( $atoi-cd 1 + @atoi-cd ) ] *
+			$atoi-result + @atoi-result
+		
+		( $atoi-c 1 + @atoi-c )
+	]
+	$atoi-result
+.}
+
+:puts{
+	.po-term-puts
+.}
+:getline{
+	.po-term-getline
+.}
+:putchar{
+	.po-term-putchar
+.}
+:getchar{
+	.po-term-getchar
+.}
+
+:代替puts(PO環境以外では関数名を「puts」に変更すれば使えます{
+	[
+		@puts-n ( $puts-n 0 = ) ?{ break }
+		$puts-n .putchar
+	]
+.}
+:代替getline(PO環境以外では関数名を「getline」に変更すれば使えます{
+	0
+	[
+		.getchar @gets-n
+		( $gets-n 0 - ) ?{
+			( $gets-n 13 = ) ?{ .getchar @drop break }
+			( $gets-n 8 = ) ?{ ( @dup $dup $dup 0 - ) ?{ @drop } }
+			( $gets-n 8 - ) ?{ $gets-n }
+		}
+	]
+	0 @gets-c
+	0 0 @.gets-b
+	[
+		$gets-c @.gets-b
+		( $gets-c $.gets-b 0 = ) ?{ break }
+		( $gets-c 1 + @gets-c )
+	]
+	0 @gets-c
+	0
+	[
+		$gets-c $.gets-b
+		( $gets-c $.gets-b 0 = ) ?{ break }
+		( $gets-c 1 + @gets-c )
+	]
+	@drop
+.}
